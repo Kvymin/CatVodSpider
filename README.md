@@ -28,7 +28,7 @@ Java 最低支援 Android 7.0。在本專案根目錄執行：
 
 打包會執行 R8，成品為 `jar/custom_spider.jar` 與 `jar/custom_spider.jar.md5`。
 
-共用接口 SDK 由 TV 專案根目錄的 `./gradlew apiJar` 產出，路徑為 `build/outputs/api/catvod-api.jar`。更新接口時，將該檔案同步到本專案的 `app/libs/catvod-api.jar`，再重新打包。
+共用接口 SDK 由 TV 專案根目錄的 `./gradlew apiJar` 產出，路徑為 `build/outputs/api/catvod-api.jar`。更新接口時，將該檔案同步到本專案的 `app/libs/catvod-api.jar`，再重新打包。QuickJS API 使用 Actions 產生的 `app/libs/quickjs-api.jar`，以 `compileOnly` 引用；更新後重新編譯 Function JAR，不另依賴 Harlon wrapper。
 
 Android 的 Context、Activity 與 Toast 使用共用 SDK 的 `com.github.catvod.Runtime`，呼叫方式為 `Runtime.context()`、`Runtime.activity()`、`Runtime.toast("訊息")`。Java／Python 的 UI 使用方式見[開發說明](docs/development.md#android-ui)。
 

@@ -1,12 +1,12 @@
 package com.github.catvod.js;
 
-import com.fongmi.quickjs.utils.JSUtil;
 import com.github.catvod.js.utils.Parser;
-import com.whl.quickjs.wrapper.JSArray;
-import com.whl.quickjs.wrapper.JSMethod;
-import com.whl.quickjs.wrapper.QuickJSContext;
+import com.fongmi.quickjs.JSArray;
+import com.fongmi.quickjs.JSMethod;
+import com.fongmi.quickjs.QuickJSContext;
 
 import java.lang.reflect.Method;
+import java.util.List;
 
 public class Function {
 
@@ -32,6 +32,12 @@ public class Function {
         }
     }
 
+    private JSArray toArray(List<String> items) {
+        JSArray array = ctx.createNewJSArray();
+        for (int i = 0; i < items.size(); i++) array.set(items.get(i), i);
+        return array;
+    }
+
     @JSMethod
     public String pd(String html, String rule, String urlKey) {
         return parser.parseDomForUrl(html, rule, urlKey);
@@ -44,11 +50,11 @@ public class Function {
 
     @JSMethod
     public JSArray pdfa(String html, String rule) {
-        return JSUtil.toArray(ctx, parser.parseDomForArray(html, rule));
+        return toArray(parser.parseDomForArray(html, rule));
     }
 
     @JSMethod
     public JSArray pdfl(String html, String rule, String texts, String urls, String urlKey) {
-        return JSUtil.toArray(ctx, parser.parseDomForList(html, rule, texts, urls, urlKey));
+        return toArray(parser.parseDomForList(html, rule, texts, urls, urlKey));
     }
 }
