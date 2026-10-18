@@ -2,6 +2,21 @@
 
 先從 [README](../README.md) 選擇範例並載入配置。三份 Demo 展示共通的分類、清單、播放、網路、儲存與網頁功能，另有各語言的專用操作；實際爬蟲只保留需要的部分。
 
+## 執行環境
+
+目前 TV 專案使用以下語言基準，App 與對應 runtime 模組需配套更新：
+
+| 語言 | 環境與寫法 |
+| --- | --- |
+| Python | CPython 3.10、Chaquopy 17.1.0；可用 `match/case`、`str \| None` 等 3.10 語法，爬蟲入口維持同步 `def`，網路使用 `self.net` |
+| QuickJS | QuickJS-NG 0.17.0；使用 ES module 的 `export default`，支援 `async/await`、`?.`、`??`，網路使用注入的 `net` |
+
+Python 的 App bridge 直接呼叫入口並序列化回傳值，不等待 coroutine；不要把入口改成 `async def`。主機驗證也使用 Python 3.10，避免較新 Python 接受 App 不支援的語法或標準庫 API。
+
+QuickJS 的宿主功能由 App 注入，不等同 Node.js 或瀏覽器環境；網路請求使用下方共用 API。
+
+UTF-8 編解碼可用 `TextEncoder`／`TextDecoder`，後者支援分塊 `decode(chunk, {stream: true})`，結束時呼叫 `decode()`；不提供其他字元編碼或 `TextEncoderStream`／`TextDecoderStream`。
+
 ## 入口
 
 | 用途 | Python | QuickJS | Java |

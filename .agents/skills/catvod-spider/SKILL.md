@@ -9,6 +9,7 @@ description: Develop or upgrade Java, Python and QuickJS TV spiders using the TV
 
 ## 寫法
 
+- 依[執行環境](../../../docs/development.md#執行環境)所列的版本選用語法與宿主 API。Python 入口用同步 `def`，App 不等待 coroutine；QuickJS 可回傳 Promise，由 App 等待。
 - 優先官方 API，確認分類、篩選、搜尋、詳情與播放的資料來源。列表 ID 接到 detail，每集播放值接到 play；只實現站點支援的功能與權限。
 - 使用 App 注入的 Python `self.net`、QuickJS `net`、Java 繼承的 `net`。不要另建網路封裝或複製 App 的內部實作。
 - Context、Activity 與 Toast 使用共用 SDK 的 `com.github.catvod.Runtime`；爬蟲 JAR 不打包宿主 SDK 類別。JAR 自己的 `com.github.catvod.spider.Init` 是獨立的可選初始化入口。

@@ -14,6 +14,8 @@ JSON API 使用 net.json，取得的是解析後的資料，不是上述 HTTP �
 
 ## Python 主機驗證
 
+主機驗證使用[執行環境](../../../../docs/development.md#執行環境)所列的 Python 版本，先以 `python --version` 確認。較新主機 Python 通過不能證明語法或標準庫 API 適用於 App；爬蟲入口維持同步 `def`。
+
 用實際請求的 URL、狀態碼與原始正文建立暫存的 responses.json，以下只展示結構；正文須換成真實回應：
 
 ```json

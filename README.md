@@ -12,6 +12,8 @@ TV 的 Java、Python 與 QuickJS 爬蟲及範例，基於 [CatVod](https://githu
 
 複製對應範例，換成站點資料，只保留需要的功能。接口與 Demo 選項見[開發說明](docs/development.md)。
 
+Python／QuickJS 的版本基準、語法與宿主 API 見[執行環境](docs/development.md#執行環境)。
+
 修改 [examples/config.json](examples/config.json) 的 `api` 與 `ext`，再讓 TV 載入這份配置。Python／QuickJS 可直接載入；Java 需先打包。
 
 使用本機路徑或網站皆可，保留 `examples` 與 `jar` 的相對位置。現有 Java 爬蟲配置見 [json/config.json](json/config.json)。
