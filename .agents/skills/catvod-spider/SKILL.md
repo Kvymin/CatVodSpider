@@ -30,7 +30,7 @@ description: Develop or upgrade Java, Python and QuickJS TV spiders using the TV
 - 播放網址可能過期，使用短 TTL、`stale:false`，不持久化。Cookie、token 與簽名網址不放進 log 或長期 Local。自己建立的 session 與資源要關閉，取消後不繼續請求。
 - WebSocket 一次交換用 `net.ws`，持續收訊用 `net.connect(url, options, callback)`。callback 收到連線與事件；使用回呼傳入的連線 send，切台或 destroy 時關閉。平台訂閱、解碼與應用層心跳由爬蟲處理。
 - 開網頁和完成提示回傳 action 的 `web`／`msg`。Java／Python 自訂 Dialog 在主執行緒執行時才取得 Activity，可能為 null／None，不保存 Activity。
-- Function JAR 使用共用 SDK 的 `com.fongmi.quickjs` API，`QuickJSContext`、`JSArray` 與 `JSMethod` 都從此包名引用；更新 SDK 後重新編譯，不打包 SDK 類別。
+- Function JAR 引用 `com.fongmi.quickjs` 的 `QuickJSContext`、`JSArray` 等 API，編譯時使用 Actions 產生的 `quickjs-api.jar` 與共用 CatVod SDK；更新後重新編譯，不打包 SDK 類別。
 - QuickJS 使用 App bridge，不是 Node.js。AES-GCM 密文末端包含 16-byte tag，二進位明文使用 Base64。
 
 ## 網站已分頁
