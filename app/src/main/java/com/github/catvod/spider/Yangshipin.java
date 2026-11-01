@@ -466,7 +466,9 @@ public class Yangshipin extends Spider {
                             entry,
                             new ProxyException(stream.code, "直播切片: HTTP " + stream.code));
                 readers.remove(stream);
-                return new Object[] {stream.code, stream.contentType, stream, stream.headers};
+                return new Object[] {
+                    stream.code, stream.contentType, stream, proxyHeaders(stream.headers)
+                };
             } catch (Exception | Error error) {
                 try {
                     closeReader(stream);
@@ -504,6 +506,20 @@ public class Yangshipin extends Spider {
 
     private static ByteArrayInputStream body(String text) {
         return new ByteArrayInputStream(text.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static Map<String, String> proxyHeaders(Map<String, Object> source) {
+        Map<String, String> headers = new LinkedHashMap<>();
+        source.forEach(
+                (name, value) ->
+                        headers.put(
+                                name,
+                                value instanceof List<?> values
+                                        ? String.join(
+                                                ", ",
+                                                values.stream().map(Object::toString).toList())
+                                        : value.toString()));
+        return headers;
     }
 
     Playlist playlist(String url, JsonObject headers, long deadline) throws Exception {
