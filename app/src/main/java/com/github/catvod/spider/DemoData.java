@@ -2,6 +2,11 @@ package com.github.catvod.spider;
 
 final class DemoData {
 
+    static final byte[] WASM_BYTES = {
+        0, 97, 115, 109, 1, 0, 0, 0, 1, 7, 1, 96, 2, 127, 127, 1, 127, 3, 2, 1, 0, 7, 7, 1, 3, 97,
+        100, 100, 0, 0, 10, 9, 1, 7, 0, 32, 0, 32, 1, 106, 11,
+    };
+
     static final String CATALOG = """
             [
                 {"id":"demo-01","name":"星光探險隊","genre":"動畫","area":"台灣","year":"2026","director":"林導演","actors":["小安","小晴"],"remark":"更新至 3 集","episodes":["第 1 集","第 2 集","第 3 集"],"content":"一群朋友追尋失落星圖的原創示範故事。"},
@@ -87,6 +92,7 @@ final class DemoData {
             {"cache_write", "寫入 Local", "保存 JSON 物件、陣列與純量"},
             {"cache_read", "讀取 Local", "讀取範例值"},
             {"cache_delete", "刪除 Local", "刪除範例值"},
+            {"wasm", "執行 WASM", "編譯內嵌模組並呼叫 add(20, 22)"},
             {"proxy", "本機 proxy", "透過 App HTTP server 呼叫此爬蟲"},
             {"runtime", "測試 App 與加密 bridge", "驗證 SHA-256 與 AES-GCM"},
             {"toast", "顯示 Toast", "action 回傳 msg，由 App 顯示"},

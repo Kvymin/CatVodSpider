@@ -4,6 +4,7 @@ import json
 import re
 import tempfile
 import time
+from io import BytesIO
 from pathlib import Path
 from urllib.parse import quote, unquote, urlsplit
 
@@ -16,6 +17,7 @@ REQUEST_TIMEOUT_MS = 15000
 VIDEO_SUFFIXES = (".m3u8", ".mpd", ".mp4", ".mkv", ".flv", ".mp3", ".m4a", ".aac")
 CACHE_KEY = "python_spider_demo_message"
 CACHE_VALUE = {"value": "範例資料", "items": [1, True, None]}
+WASM_BYTES = bytes.fromhex("0061736d0100000001070160027f7f017f030201000707010361646400000a09010700200020016a0b")
 COOKIE_NAME_PATTERN = re.compile(r"^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$")
 
 # 真實爬蟲可把這個 tuple 換成 API 或 HTML 解析結果，其餘介面保持不變。
@@ -337,6 +339,11 @@ class Spider(BaseSpider):
         return result
 
     def action(self, action):
+        if action == "wasm":
+            return self._wasm_action()
+        if action in ("ttl_cache", "ttl_text", "ttl_peek", "ttl_clear", "ttl_clear_all", "ttl_persist", "ttl_background",
+                      "cache_write", "cache_read", "cache_delete"):
+            return self._cache_action(action)
         if action in ("json", "session", "parallel", "parallel_map", "binary", "request_sync", "stream_read", "proxy_stream", "proxy_body"):
             return self._network_action(action)
         if action == "script":
@@ -349,16 +356,6 @@ class Spider(BaseSpider):
                 target = Path(directory) / "demo.bin"
                 self.net.download(self.request_url, target)
                 return {"msg": "下載完成：%s bytes" % target.stat().st_size}
-        if action == "ttl_persist":
-            value = self.net.cached("demo:persist", {"ttl": 60000, "stale": False, "persist": True}, self._cache_value)
-            return {"msg": "持久化快取：" + str(value["updated"])}
-        if action == "ttl_background":
-            value = self.net.peek("demo:background")
-            self.net.refresh("demo:background", {"ttl": 1000, "stale": False, "persist": True}, self._refresh_cache)
-            return {"msg": "背景更新已安排；目前值：" + (str(value["updated"]) if value else "尚未載入")}
-        if action == "ttl_clear_all":
-            self.net.clearCache()
-            return {"msg": "已清除目前站點的全部 TTL 快取"}
         if action == "web_view":
             return {"web": {"url": self._absolute_url(self.options.get("game_url") or self.web_url, "game_url"), "mode": "view"}}
         if action == "proxy":
@@ -370,18 +367,6 @@ class Spider(BaseSpider):
             return {}
         if action == "runtime":
             return self._check_runtime()
-        if action == "ttl_cache":
-            value = self.net.cached("demo:ttl", {"ttl": 60000}, lambda: {"value": "範例資料"})
-            return {"msg": "TTL 快取：" + value["value"]}
-        if action == "ttl_text":
-            text = self.net.cachedText("demo:ttl", {"ttl": 60000}, lambda: {"value": "範例資料"})
-            return {"msg": "JSON 快取文字：" + text}
-        if action == "ttl_peek":
-            value = self.net.peek("demo:ttl")
-            return {"msg": "目前沒有 TTL 快取" if value is None else "已有 TTL 快取：" + value["value"]}
-        if action == "ttl_clear":
-            self.net.clearCache("demo:ttl")
-            return {"msg": "已清除 TTL 快取"}
         if action == "sleep":
             self.net.sleep(250)
             return {"msg": "等待完成（250 毫秒）"}
@@ -429,6 +414,31 @@ class Spider(BaseSpider):
             return self._connect_socket()
         if action == "websocket":
             return self._exchange_socket()
+        return {"msg": "不支援此操作"}
+
+    def _cache_action(self, action):
+        if action == "ttl_cache":
+            value = self.net.cached("demo:ttl", {"ttl": 60000}, lambda: {"value": "範例資料"})
+            return {"msg": "TTL 快取：" + value["value"]}
+        if action == "ttl_text":
+            text = self.net.cachedText("demo:ttl", {"ttl": 60000}, lambda: {"value": "範例資料"})
+            return {"msg": "JSON 快取文字：" + text}
+        if action == "ttl_peek":
+            value = self.net.peek("demo:ttl")
+            return {"msg": "目前沒有 TTL 快取" if value is None else "已有 TTL 快取：" + value["value"]}
+        if action == "ttl_clear":
+            self.net.clearCache("demo:ttl")
+            return {"msg": "已清除 TTL 快取"}
+        if action == "ttl_clear_all":
+            self.net.clearCache()
+            return {"msg": "已清除目前站點的全部 TTL 快取"}
+        if action == "ttl_persist":
+            value = self.net.cached("demo:persist", {"ttl": 60000, "stale": False, "persist": True}, self._cache_value)
+            return {"msg": "持久化快取：" + str(value["updated"])}
+        if action == "ttl_background":
+            value = self.net.peek("demo:background")
+            self.net.refresh("demo:background", {"ttl": 1000, "stale": False, "persist": True}, self._refresh_cache)
+            return {"msg": "背景更新已安排；目前值：" + (str(value["updated"]) if value else "尚未載入")}
         if action == "cache_write":
             self.local.set(self.cache_key, CACHE_VALUE)
             return {"msg": "已寫入 Python Local"}
@@ -438,7 +448,7 @@ class Spider(BaseSpider):
         if action == "cache_delete":
             self.local.delete(self.cache_key)
             return {"msg": "已刪除 Python Local 資料"}
-        return {"msg": "不支援此操作"}
+        raise ValueError(action)
 
     def _show_form(self):
         result = self.dialog({
@@ -585,6 +595,17 @@ class Spider(BaseSpider):
                 response["code"], len(response["content"].encode("utf-8")))}
         except Exception as error:
             return {"msg": "WebSocket 交換失敗：" + type(error).__name__}
+
+    @staticmethod
+    def _wasm_action():
+        import pywasm
+
+        module = pywasm.binary.Module.from_reader(BytesIO(WASM_BYTES))
+        runtime = pywasm.Runtime(module)
+        result = runtime.exec("add", [20, 22])
+        if result != 42:
+            raise ValueError("WASM add 回傳值不符")
+        return {"msg": "WASM：add(20, 22) = %s" % result}
 
     def _check_runtime(self):
         try:
@@ -896,6 +917,7 @@ class Spider(BaseSpider):
                 ("cache_write", "寫入 Local", "保存 JSON 物件、陣列與純量"),
                 ("cache_read", "讀取 Local", "讀取範例值"),
                 ("cache_delete", "刪除 Local", "刪除範例值"),
+                ("wasm", "執行 WASM", "編譯內嵌模組並呼叫 add(20, 22)"),
                 ("proxy", "本機 proxy", "透過 App HTTP server 呼叫此爬蟲"),
                 ("runtime", "測試 App 與加密 bridge", "驗證 SHA-256 與 AES-GCM"),
                 ("toast", "顯示 Toast", "action 回傳 msg，由 App 顯示"),

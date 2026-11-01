@@ -27,6 +27,7 @@ QuickJS 宿主功能需使用 v11 配套的 wrapper、runtime 與 TV 介接；�
 | HTTP | Headers／Request／Response |
 | 加密 | getRandomValues／randomUUID、SHA、HMAC、AES-GCM／CBC、raw／octet JWK、wrap／unwrap；不支援 RSA、橢圓曲線或 KDF；GCM tag 為 96、104、112、120、128 bits，附加於密文末端 |
 | 模組 | JSON module import attributes，type 為 json |
+| WASM | WebAssembly 的 Module／Instance／Memory／Table／Global、validate／compile／instantiate、compileStreaming／instantiateStreaming；限制見 [WebAssembly](#webassembly) |
 
 不是 Node.js 環境。`Intl` 與 `Atomics.waitAsync` 未提供。
 
@@ -103,6 +104,7 @@ VOD 的 `style.type` 支援 rect／oval／list，同頁保持一致；分類使�
 | 串流 | stream_read、proxy_stream；Python／QuickJS 另有 proxy_body 自訂正文 |
 | WebSocket | websocket 單次交換；socket-start／socket-state／socket-stop 持續收訊 |
 | 快取與儲存 | ttl_cache／ttl_peek／ttl_background／ttl_persist／ttl_clear／ttl_clear_all；cache_write／cache_read／cache_delete 操作 Local |
+| WASM | wasm：載入內嵌模組並呼叫 add(20, 22) |
 | 腳本與互動 | script、runtime、proxy、toast、site_key、web、web_view、dialog、qrcode、dialog_steps；live_danmaku 選項啟用即時彈幕 |
 
 額外操作依語言區分：
@@ -111,7 +113,7 @@ VOD 的 `style.type` 支援 rect／oval／list，同頁保持一致；分類使�
 | --- | --- |
 | Java | request_sync、text_get、text_post、native_toast |
 | Python | request_sync、ttl_text、native_toast |
-| QuickJS | html_query |
+| QuickJS | html_query、wasm_stream |
 
 ## 播放詳情更新
 
@@ -295,6 +297,36 @@ Local 保存小型設定：Java 使用 local、Python 使用 self.local、QuickJ
 短段腳本用 `js.eval(source, options)`；Java 的 options 與回傳值使用 JSON 字串，Python 加 self，QuickJS 加 await。每次建立隔離環境，回傳最後一個運算式的 JSON 值；依 JSON.stringify 序列化，NaN／Infinity 轉成 null，物件中的 undefined／函式欄位省略，陣列中轉成 null。頂層 undefined／函式、BigInt、循環引用及 Promise 會失敗。內建 `md5X(text)`，不提供網路、DOM 或模組匯入。
 
 `options.globals` 傳入 JSON 變數，不拼接資料到程式碼，也不能覆蓋 md5X；`options.timeout` 為正整數毫秒，預設 5000。完成、逾時或取消時關閉環境；站點釋放會取消尚未完成的執行。三種語言都需要更新後的 App 與 QuickJS 模組，Python 另需 Python 模組。見 Demo 的 `script`。
+
+## WebAssembly
+
+三語言 Demo 的 `wasm` 都使用同一份內嵌加法模組，`msg` 皆為 `WASM：add(20, 22) = 42`，不需 ext 或連線。
+
+| 語言 | 載入與呼叫 |
+| --- | --- |
+| Java | `com.fongmi.quickjs.WasmRuntime` 的 `compile(byte[])` → `instantiate(module)` → `instance.call(name, ...args)`，結果為 `Object[]` |
+| Python | `pywasm.binary.Module.from_reader(BytesIO(binary))` → `pywasm.Runtime(module)` → `runtime.exec(name, args)` |
+| QuickJS | `await WebAssembly.instantiate(binary, imports)` 回傳 `{module, instance}`，以 `instance.exports.name(...)` 呼叫 |
+
+Java／QuickJS 需配套的 QuickJS 模組。Java 以 try-with-resources 關閉 runtime、module 與 instance；`compileTimed／instantiateTimed／callTimed` 的第一個參數為逾時毫秒，0 表示無限。Python 使用 Python 模組提供的 `pywasm==1.0.8`，檔案可用 `pywasm.load(path)` 載入，不共用 wrapper 的預算、快取與取消機制。
+
+QuickJS 的 `WebAssembly` 是全域介面，`js.eval` 的隔離環境未安裝。binary 接受 ArrayBuffer 或其檢視，編譯時複製輸入；Module／Instance 可同步建立，`compile／instantiate` 回傳 Promise。`instantiate(module, imports)` 回傳 Instance；`Module.imports／exports／customSections` 可讀取模組資訊。
+
+QuickJS 的 imports 為 `{模組名稱: {匯入名稱: 值}}`，可傳同步函式、Memory、Table 或 Global。Module 可重用；各實例的資源獨立，明確匯入同一資源時才共用。i64 使用 BigInt，externref 保留 JS 值。舊有 `this.wasm.instantiate` 提供 `call／read／write／close`，匯入函式多一個實例參數，不與標準 API 混用。
+
+QuickJS 的 `wasm_stream` 示範 `instantiateStreaming`；`compileStreaming` 則回傳 Module。兩者回傳 Promise，接受真正的 Response 或其 Promise，狀態須為 2xx、Content-Type 為 `application/wasm`，body 須未讀取且未鎖定，區塊為 Uint8Array；目前收齊位元組後才解析。
+
+宿主沒有全域 fetch。遠端模組用 `await this.net.req(url, {buffer: 3})` 取得 ArrayBuffer，先處理 error 與 code；net 回應本身不是 Response。載入沿用目前呼叫的取消與逾時，保留原始拒絕值；格式、連結、執行錯誤分別為 CompileError、LinkError、RuntimeError，超出資源預算為 RangeError。
+
+| QuickJS 資源 | 每個 runtime 的限制 |
+| --- | --- |
+| 模組輸入 | 每份 16 MiB，作用中合計 32 MiB |
+| 串流載入 | 最多 64 個，待解析位元組合計 32 MiB |
+| 解析快取 | 最多 8 個模組，原始位元組合計 2 MiB |
+| Memory | 每份 64 MiB，合計 128 MiB |
+| Table | 每份 32,768 格，合計 65,536 格 |
+
+未內建 WASI；不支援 SIMD、shared memory／threads、Memory64、WasmGC、多記憶體、例外標籤、tail call 及部分函式參照指令。
 
 ## 分頁與超連結
 

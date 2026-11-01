@@ -3,6 +3,7 @@ package com.github.catvod.spider;
 import android.content.Context;
 import android.net.Uri;
 
+import com.fongmi.quickjs.WasmRuntime;
 import com.github.catvod.Runtime;
 import com.github.catvod.bean.Class;
 import com.github.catvod.bean.Danmaku;
@@ -265,6 +266,8 @@ public class Demo extends Spider {
     @Override
     public String action(String value) throws Exception {
         switch (value) {
+            case "wasm":
+                return wasmAction();
             case "script":
                 String evaluated = js.eval("({value: value + 1, digest: md5X(text)})", GSON.toJson(Map.of("globals", Map.of("value", 41, "text", "demo"), "timeout", 1000)));
                 return Response.notify("腳本執行結果：" + evaluated);
@@ -312,6 +315,16 @@ public class Demo extends Spider {
         }
     }
 
+    private String wasmAction() throws Exception {
+        try (WasmRuntime runtime = new WasmRuntime();
+                WasmRuntime.Module module = runtime.compile(DemoData.WASM_BYTES);
+                WasmRuntime.Instance instance = runtime.instantiate(module)) {
+            int sum = (int) instance.call("add", 20, 22)[0];
+            if (sum != 42) throw new IllegalStateException("WASM add 回傳值不符");
+            return Response.notify("WASM：add(20, 22) = " + sum);
+        }
+    }
+
     private String cacheAction(String value) throws Exception {
         switch (value) {
             case "ttl_cache":
@@ -349,26 +362,23 @@ public class Demo extends Spider {
 
     private String networkAction(String value) throws Exception {
         switch (value) {
-            case "socket-start" -> {
+            case "socket-start":
                 return connectSocket();
-            }
-            case "socket-stop" -> {
+            case "socket-stop":
                 if (socket != null) socket.close();
                 socket = null;
                 return Response.notify("WebSocket 已停止");
-            }
-            case "socket-state" -> {
+            case "socket-state":
                 JsonObject state = socketState;
                 synchronized (state) {
                     return Response.notify(state.toString());
                 }
-            }
-            case "json" -> {
-                return Response.notify("JSON 請求成功：" + JsonParser.parseString(net.json(httpUrl(option("json_url"), "json_url"), "{}")).getClass().getSimpleName());
-            }
-            case "websocket" -> {
+            case "json":
+                String json = net.json(httpUrl(option("json_url"), "json_url"), "{}");
+                String type = JsonParser.parseString(json).getClass().getSimpleName();
+                return Response.notify("JSON 請求成功：" + type);
+            case "websocket":
                 return websocket();
-            }
         }
         String url = httpUrl(option("request_url", option("web_url")), "request_url");
         switch (value) {

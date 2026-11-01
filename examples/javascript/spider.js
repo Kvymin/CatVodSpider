@@ -7,6 +7,10 @@ const SEARCH_ALL_KEYWORD = "示範";
 const REQUEST_TIMEOUT_MS = 15000;
 const VIDEO_SUFFIXES = [".m3u8", ".mpd", ".mp4", ".mkv", ".flv", ".mp3", ".m4a", ".aac"];
 const CACHE_KEY = "message";
+const WASM_BYTES = [
+    0, 97, 115, 109, 1, 0, 0, 0, 1, 7, 1, 96, 2, 127, 127, 1, 127,
+    3, 2, 1, 0, 7, 7, 1, 3, 97, 100, 100, 0, 0, 10, 9, 1, 7, 0, 32, 0, 32, 1, 106, 11,
+];
 
 // 真實爬蟲可把這個陣列換成 API 或 HTML 解析結果，其餘介面保持不變。
 const CATALOG = [
@@ -258,44 +262,19 @@ export default class Demo extends Spider {
     }
 
     async action(value) {
+        if (value === "wasm" || value === "wasm_stream") return this.wasmAction(value === "wasm_stream");
         if (value === "html_query") return this.htmlQueryAction();
+        if (["ttl_cache", "ttl_peek", "ttl_clear", "ttl_clear_all", "ttl_persist", "ttl_background",
+            "cache_write", "cache_read", "cache_delete"].includes(value)) return this.cacheAction(value);
         if (["json", "session", "parallel", "parallel_map", "binary", "stream_read", "proxy_stream", "proxy_body"].includes(value)) return this.networkAction(value);
         if (value === "download") {
             await this.net.download(ensureHttpUrl(this.options.request_url || this.options.web_url, "request_url"), "spider-demo.bin");
             return {msg: "下載完成，檔案已寫入 App 快取"};
         }
-        if (value === "ttl_persist") {
-            const data = await this.net.cached("demo:persist", {ttl: 60000, stale: false, persist: true}, this.cacheValue);
-            return {msg: "持久化快取：" + data.updated};
-        }
-        if (value === "ttl_background") {
-            const data = this.net.peek("demo:background");
-            this.net.refresh("demo:background", {ttl: 1000, stale: false, persist: true}, async () => {
-                await this.net.sleep(250);
-                return this.cacheValue();
-            });
-            return {msg: "背景更新已安排；目前值：" + (data ? data.updated : "尚未載入")};
-        }
-        if (value === "ttl_clear_all") {
-            this.net.clearCache();
-            return {msg: "已清除目前站點的全部 TTL 快取"};
-        }
         if (value === "web_view") return {web: {url: ensureHttpUrl(this.options.game_url || this.options.web_url, "game_url"), mode: "view"}};
         if (value === "proxy") {
             const data = await this.net.json(this.proxyUrl({demo: "json"}));
             return {msg: "本機 proxy：" + data.name};
-        }
-        if (value === "ttl_cache") {
-            const data = await this.net.cached("demo:ttl", {ttl: 60000}, () => ({value: "範例資料"}));
-            return {msg: "TTL 快取：" + data.value};
-        }
-        if (value === "ttl_peek") {
-            const data = this.net.peek("demo:ttl");
-            return {msg: data === null ? "目前沒有 TTL 快取" : "已有 TTL 快取：" + data.value};
-        }
-        if (value === "ttl_clear") {
-            this.net.clearCache("demo:ttl");
-            return {msg: "已清除 TTL 快取"};
         }
         if (value === "sleep") {
             await this.net.sleep(250);
@@ -307,15 +286,11 @@ export default class Demo extends Spider {
             });
             return {msg: "腳本執行結果：" + JSON.stringify(data)};
         }
-        if (value === "toast") {
-            return {msg: "這是 QuickJS action 回傳、由 App 顯示的 Toast"};
-        }
+        if (value === "toast") return {msg: "這是 QuickJS action 回傳、由 App 顯示的 Toast"};
         if (value === "dialog_steps") return this.showSteps();
         if (value === "qrcode") return this.showQrCode();
         if (value === "dialog") return this.showForm();
-        if (value === "site_key") {
-            return {msg: `目前 Site key：${this.siteKey}`};
-        }
+        if (value === "site_key") return {msg: `目前 Site key：${this.siteKey}`};
         if (value === "web") {
             const url = stringValue(this.options.web_url).trim();
             if (!url) return {msg: "請先在 ext 設定 web_url"};
@@ -352,6 +327,38 @@ export default class Demo extends Spider {
         if (value === "socket-start") return this.connectSocket();
         if (value === "websocket") return this.exchangeSocket();
         if (value === "runtime") return this.checkRuntime();
+        return {msg: "不支援此操作"};
+    }
+
+    async cacheAction(value) {
+        if (value === "ttl_cache") {
+            const data = await this.net.cached("demo:ttl", {ttl: 60000}, () => ({value: "範例資料"}));
+            return {msg: "TTL 快取：" + data.value};
+        }
+        if (value === "ttl_peek") {
+            const data = this.net.peek("demo:ttl");
+            return {msg: data === null ? "目前沒有 TTL 快取" : "已有 TTL 快取：" + data.value};
+        }
+        if (value === "ttl_clear") {
+            this.net.clearCache("demo:ttl");
+            return {msg: "已清除 TTL 快取"};
+        }
+        if (value === "ttl_clear_all") {
+            this.net.clearCache();
+            return {msg: "已清除目前站點的全部 TTL 快取"};
+        }
+        if (value === "ttl_persist") {
+            const data = await this.net.cached("demo:persist", {ttl: 60000, stale: false, persist: true}, this.cacheValue);
+            return {msg: "持久化快取：" + data.updated};
+        }
+        if (value === "ttl_background") {
+            const data = this.net.peek("demo:background");
+            this.net.refresh("demo:background", {ttl: 1000, stale: false, persist: true}, async () => {
+                await this.net.sleep(250);
+                return this.cacheValue();
+            });
+            return {msg: "背景更新已安排；目前值：" + (data ? data.updated : "尚未載入")};
+        }
         if (value === "cache_write") {
             this.local.set(CACHE_KEY, {value: "範例資料", items: [1, true, null]});
             return {msg: "已寫入 QuickJS local"};
@@ -364,7 +371,7 @@ export default class Demo extends Spider {
             this.local.delete(CACHE_KEY);
             return {msg: "已刪除 QuickJS local 資料"};
         }
-        return {msg: "不支援此操作"};
+        throw new Error(value);
     }
 
     async showForm() {
@@ -549,6 +556,27 @@ export default class Demo extends Spider {
         } catch (error) {
             return {msg: `WebSocket 交換失敗：${errorName(error)}`};
         }
+    }
+
+    async wasmAction(streaming) {
+        const binary = new Uint8Array(WASM_BYTES);
+        let result;
+        if (streaming) {
+            const body = new ReadableStream({
+                start(controller) {
+                    controller.enqueue(binary.subarray(0, 8));
+                    controller.enqueue(binary.subarray(8));
+                    controller.close();
+                },
+            });
+            const response = new Response(body, {headers: {"Content-Type": "application/wasm"}});
+            result = await WebAssembly.instantiateStreaming(response);
+        } else {
+            result = await WebAssembly.instantiate(binary);
+        }
+        const sum = result.instance.exports.add(20, 22);
+        if (sum !== 42) throw new Error("WASM add 回傳值不符");
+        return {msg: `${streaming ? "WASM 串流" : "WASM"}：add(20, 22) = ${sum}`};
     }
 
     checkRuntime() {
@@ -878,6 +906,8 @@ export default class Demo extends Spider {
             ["cache_read", "讀取 Local", "讀取範例值"],
             ["cache_delete", "刪除 Local", "刪除範例值"],
             ["html_query", "HTML 欄位解析", "一次解析 HTML，取出標題、ID 與演員"],
+            ["wasm", "執行 WASM", "編譯內嵌模組並呼叫 add(20, 22)"],
+            ["wasm_stream", "串流載入 WASM", "分塊 Response 與 instantiateStreaming"],
             ["proxy", "本機 proxy", "透過 App HTTP server 呼叫此爬蟲"],
             ["runtime", "測試 App 與加密 bridge", "驗證 SHA-256 與 AES-GCM"],
             ["toast", "顯示 Toast", "action 回傳 msg，由 App 顯示"],
