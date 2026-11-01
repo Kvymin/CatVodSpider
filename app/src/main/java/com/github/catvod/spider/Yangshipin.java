@@ -20,6 +20,7 @@ import com.google.gson.JsonParser;
 
 import okhttp3.HttpUrl;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InterruptedIOException;
 import java.nio.ByteBuffer;
@@ -85,17 +86,11 @@ public class Yangshipin extends Spider {
         }
     }
 
-    record Reply(int code, Map<String, Object> headers, byte[] body) {
+    record Reply(int code, Map<String, Object> headers, byte[] body) {}
 
-    }
+    record Playlist(String text, String url) {}
 
-    record Playlist(String text, String url) {
-
-    }
-
-    record SourceState(String key, String value) {
-
-    }
+    record SourceState(String key, String value) {}
 
     @Override
     public void init(Context context, String extend) {
@@ -242,7 +237,7 @@ public class Yangshipin extends Spider {
             String type = params.getOrDefault("type", "web");
             if (type.equals("epg"))
                 return new Object[] {
-                    200, "application/json", epg(params.get("id"), params.get("date"))
+                    200, "application/json", body(epg(params.get("id"), params.get("date")))
                 };
             if (type.equals("auto")) return proxyAuto(params);
             if (!List.of("web", "app", "tv").contains(type))
@@ -261,7 +256,7 @@ public class Yangshipin extends Spider {
             return new Object[] {
                 error instanceof ProxyException failure ? failure.status : 502,
                 "text/plain; charset=utf-8",
-                "央視頻: " + safe(error)
+                body("央視頻: " + safe(error))
             };
         }
     }
@@ -310,7 +305,7 @@ public class Yangshipin extends Spider {
                 return new Object[] {
                     302,
                     "text/plain",
-                    "",
+                    body(""),
                     Map.of("Location", proxyUrl(target(entry)), "Cache-Control", "no-store")
                 };
             } catch (Exception error) {
@@ -502,9 +497,13 @@ public class Yangshipin extends Spider {
         return new Object[] {
             200,
             HLS_MIME,
-            rewritePlaylist(playlist.text(), playlist.url(), target),
+            body(rewritePlaylist(playlist.text(), playlist.url(), target)),
             Map.of("Cache-Control", "no-store")
         };
+    }
+
+    private static ByteArrayInputStream body(String text) {
+        return new ByteArrayInputStream(text.getBytes(StandardCharsets.UTF_8));
     }
 
     Playlist playlist(String url, JsonObject headers, long deadline) throws Exception {
@@ -644,7 +643,8 @@ public class Yangshipin extends Spider {
             throw new ProxyException(400, "invalid epg request");
         try {
             SimpleDateFormat format = dateFormat("yyyy-MM-dd");
-            if (!format.format(format.parse(date)).equals(date)) throw new IllegalArgumentException();
+            if (!format.format(format.parse(date)).equals(date))
+                throw new IllegalArgumentException();
         } catch (java.text.ParseException | RuntimeException error) {
             throw new ProxyException(400, "invalid date", error);
         }
@@ -1041,13 +1041,14 @@ public class Yangshipin extends Spider {
     }
 
     private void closeUnclaimed(CompletableFuture<Net.StreamResult> future, Throwable failure) {
-        future.thenAccept(stream -> {
-            try {
-                closeReader(stream);
-            } catch (RuntimeException | Error closing) {
-                if (failure != closing) failure.addSuppressed(closing);
-            }
-        });
+        future.thenAccept(
+                stream -> {
+                    try {
+                        closeReader(stream);
+                    } catch (RuntimeException | Error closing) {
+                        if (failure != closing) failure.addSuppressed(closing);
+                    }
+                });
     }
 
     static JsonObject playerHeaders() {
@@ -1135,7 +1136,7 @@ public class Yangshipin extends Spider {
         return (int) Math.min(15000, remaining);
     }
 
-    static JsonObject json(Object...pairs) {
+    static JsonObject json(Object... pairs) {
         JsonObject result = new JsonObject();
         for (int i = 0; i < pairs.length; i += 2)
             result.add((String) pairs[i], GSON.toJsonTree(pairs[i + 1]));
