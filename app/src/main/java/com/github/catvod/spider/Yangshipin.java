@@ -821,7 +821,7 @@ public class Yangshipin extends Spider {
                 for (JsonElement value : array(data, "backurl_list"))
                     urls.add(str(value.getAsJsonObject(), "url"));
             urls.add(str(data, "playurl"));
-            for (String url : urls) if (playbackUrl(url)) return url;
+            for (String url : urls) if (playbackUrl(url)) return mediaUrl(url, data);
             throw new ProxyException(502, "取得播放資訊: missing hls manifest");
         } finally {
             sessions.remove(session);
@@ -1266,6 +1266,20 @@ public class Yangshipin extends Spider {
                                 builder.setQueryParameter(
                                         value.getKey(), value.getValue().getAsString()));
         return builder.build().toString();
+    }
+
+    static String mediaUrl(String location, JsonObject data) throws ProxyException {
+        JsonElement value = data.get("extended_param");
+        if (value == null || value.isJsonNull()) return location;
+        if (!value.isJsonPrimitive() || !value.getAsJsonPrimitive().isString())
+            throw new ProxyException(502, "播放地址: invalid media parameters");
+        String extension = value.getAsString();
+        if (!extension.isEmpty() && !extension.startsWith("&"))
+            throw new ProxyException(502, "播放地址: invalid media parameters");
+        return location
+                + (location.contains("?") || extension.isEmpty()
+                        ? extension
+                        : "?" + extension.substring(1));
     }
 
     static boolean playbackUrl(String url) {

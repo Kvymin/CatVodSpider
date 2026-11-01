@@ -166,7 +166,7 @@ final class YangshipinApp {
                 headers.add(header.getKey(), header.getValue());
             }
         }
-        return json("url", url, "headers", headers);
+        return json("url", mediaUrl(url, result), "headers", headers);
     }
 
     static byte[] concat(byte[]... arrays) {
