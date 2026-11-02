@@ -1,0 +1,31 @@
+name: Build CatVodSpider wasm branch
+on:
+  workflow_dispatch: # 手动触发（网页上点运行）
+  push:
+    branches: [ codex/java-wasm-integration ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: codex/java-wasm-integration # 固定切换到目标分支
+          fetch-depth: 0
+
+      - name: Setup JDK 17 Temurin
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Maven package
+        run: mvn clean package -DskipTests
+
+      - name: Upload jar artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: custom_spider-jar
+          path: target/custom_spider.jar
