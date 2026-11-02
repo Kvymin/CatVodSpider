@@ -1,27 +1,38 @@
-name: Spider Jar Gen CI
-
-on: workflow_dispatch
+name: Build CatVodSpider codex/java-wasm-integration
+on:
+  workflow_dispatch: # 仅手动触发，推荐，避免push触发异常
 
 jobs:
   build:
-
-    runs-on: windows-latest
-    
+    runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - name: set up JDK 11
-      uses: actions/setup-java@v2
-      with:
-        java-version: '11'
-        distribution: 'adopt'
-        cache: gradle
-        
-    - name: Build with Gradle
-      run: ./buildAndGenJar.bat ec
-        
-    - name: Update spider jar
-      uses: EndBug/add-and-commit@v7
-      with:
-        default_author: github_actions
-        message: 'update spider jar'
-        add: "['./jar/custom_spider.jar', './jar/custom_spider.jar.md5']"
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          ref: codex/java-wasm-integration
+          fetch-depth: 0
+
+      - name: Show directory structure
+        run: |
+          echo "==== 当前目录列表 ===="
+          ls -la
+          echo "==== 查找pom.xml ===="
+          find . -name pom.xml
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: none
+
+      - name: Maven build package
+        run: |
+          # 重点：如果 find 发现 pom.xml 在子文件夹，例如 spider/，就改成 cd spider && mvn ...
+          mvn clean package -DskipTests
+
+      - name: Upload custom_spider.jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: custom_spider
+          path: target/custom_spider.jar
