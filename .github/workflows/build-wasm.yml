@@ -1,6 +1,6 @@
 name: Build CatVodSpider wasm branch
 on:
-  workflow_dispatch: # 手动触发（网页上点运行）
+  workflow_dispatch:
   push:
     branches: [ codex/java-wasm-integration ]
 
@@ -11,18 +11,26 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          ref: codex/java-wasm-integration # 固定切换到目标分支
+          ref: codex/java-wasm-integration
           fetch-depth: 0
+
+      # 【调试关键】打印目录结构，看文件到底在哪
+      - name: List files
+        run: ls -la && find . -name "pom.xml"
 
       - name: Setup JDK 17 Temurin
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
-          cache: maven
+          # 👉 重点：不要自动扫描pom，关闭自动cache，避免这个报错
+          cache: none
 
+      # 如果 find 看到 pom.xml 在子目录，例如 ./spider/pom.xml，就 cd 进去
       - name: Maven package
-        run: mvn clean package -DskipTests
+        run: |
+          # 如果pom在根目录直接执行；如果在子文件夹，改成 cd spider && mvn ...
+          mvn clean package -DskipTests
 
       - name: Upload jar artifact
         uses: actions/upload-artifact@v4
